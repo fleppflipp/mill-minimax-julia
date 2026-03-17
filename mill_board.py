@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class Board:
     def __init__(self):
         self.board = np.zeros(24, dtype=int)
@@ -62,28 +61,33 @@ class Board:
         
         
     ##  validating moves in each phase of the game
-    ## the player parameter is a number, indicationg wich players move it is, 1 or 2
+    ## the player parameter is a number, indicationg which players move it is, 1 or 2
     
     def is_valid_first_phase(self, position):
         if(position < 0 or position > 23):
             return False
+        
         if(self.board[position] != 0): 
             return False
+        
         return True
     
     def is_valid_second_phase(self, start_pos, end_pos, player):
-        if (start_pos < 0 or start_pos > 23) or (end_pos < 0 or end_pos >23 ):
+        if (start_pos < 0 or start_pos > 23) or (end_pos < 0 or end_pos > 23):
             return False
+        
         if (self.board[start_pos] != player):
             return False
+        
         if (self.board[end_pos] != 0 ):
             return False
+        
         if(end_pos not in self.adjacency_list[start_pos]):
             return False
         return True
 
     def is_valild_third_phase(self, start_pos, end_pos, player):
-        if (start_pos < 0 or start_pos > 23) or (end_pos < 0 or end_pos >23 ):
+        if (start_pos < 0 or start_pos > 23) or (end_pos < 0 or end_pos > 23):
             return False
         if (self.board[start_pos] != player):
             return False
@@ -96,3 +100,10 @@ class Board:
             if(self.board[p1] == player and self.board[p2] == player and self.board[p3] == player):
                 return True
         return False
+    
+    # Methods returning all the available actions regarding the current state
+    def available_actions_first_phase(self):
+        return [pos for pos in range(len(self.board)) if self.board[pos] == 0]
+
+    def available_actions_second_phase(self, pos):
+        return [neigh for neigh in self.adjacency_list[pos] if self.board[neigh] == 0]
