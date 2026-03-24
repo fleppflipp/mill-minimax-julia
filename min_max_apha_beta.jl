@@ -247,7 +247,7 @@ function mini_max_second_phase(board::Board, player::UInt8, depth::UInt8, alpha:
                 new_p2_position = board.player_two_positions & ~(UInt32(1) << from_move) | (UInt32(1) << to_move)
                 new_board = Board(board.player_one_positions, new_p2_position, board.player_one_pieces, board.player_two_pieces)
 
-                if (is_mill_after_move(new_board, to_move, UInt8(1)))
+                if (is_mill_after_move(new_board, UInt32(to_move), UInt8(1)))
                     can_capture_mask = get_capurable_bit_mask(new_board, UInt8(0))
 
                     for j in 0:23
@@ -307,7 +307,7 @@ function mini_max_second_phase(board::Board, player::UInt8, depth::UInt8, alpha:
                 new_p1_position = board.player_one_positions & ~(UInt32(1) << from_move) | (UInt32(1) << to_move)
                 new_board = Board(new_p1_position, board.player_two_positions, board.player_one_pieces, board.player_two_pieces)
 
-                if (is_mill_after_move(new_board, to_move, UInt8(0)))
+                if (is_mill_after_move(new_board, UInt32(to_move), UInt8(0)))
                     can_capture_mask = get_capurable_bit_mask(new_board, UInt8(1))
 
                     for j in 0:23
