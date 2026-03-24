@@ -128,3 +128,24 @@ function is_mill_after_move(board::Board, position::UInt32, player_index::UInt8)
 
     return false
 end
+
+function get_capurable_bit_mask(board::Board, enemy_index::UInt8)::UInt32
+    enemy_board = enemy_index == 0 ? board.player_one_positions : board.player_two_positions
+
+    capturable_bit_mask = UInt32(0)
+    for i in 0:23
+        pos = UInt32(1) << i
+        if (enemy_board & pos) != 0
+            if !is_mill_after_move(board, UInt32(i), enemy_index)
+                capturable_bit_mask |= pos
+            end
+        end
+    end
+
+    # ha csak malom van, akkor barmit le lehet venni
+    if (capturable_bit_mask == 0) && (enemy_board != 0)
+        return enemy_board
+    end
+
+    return capturable_bit_mask
+end
