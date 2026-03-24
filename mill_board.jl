@@ -1,4 +1,4 @@
-mutable struct Board
+struct Board
     player_one_positions::UInt32
     player_two_positions::UInt32
 
