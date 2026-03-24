@@ -5,8 +5,53 @@ struct Node
     board::Board
 end
 
-function evaluate_first_phase(board::Board)::Int
+total_evaluations = 0
 
+
+# multipliers for the heauristic evaluation of the score
+const PIECE_DIFF_MULTIPLIER = 100
+const MILLS_DIFF_MULTIPLIER = 40
+const NEARLY_MILL_MULTIPLIER = 20
+const INTERSECTION_MULTIPLIER = 5
+function evaluate_first_phase(board::Board)::Int
+    global total_evaluations += 1
+
+    score = 0
+
+    score += PIECE_DIFF_MULTIPLIER * (board.player_one_pieces - board.player_two_pieces)
+
+    p1_mills = 0
+    p1_nearly = 0
+
+    p2_mills = 0
+    p2_nearly = 0
+    for mill_mask in ALL_MILLS_BIT_MASK
+        
+        p1_count_in_mill = count_ones(mill_mask & board.player_one_positions)
+        p2_count_in_mill = count_ones(mill_mask & board.player_two_positions)
+        
+        if(p1_count_in_mill == 3)
+            p1_mills += 1
+        elseif p1_count_in_mill == 2 && p2_count_in_mill == 0
+            p1_nearly += 1
+        end
+
+        if (p2_count_in_mill == 3)
+            p2_mills += 1
+        elseif p2_count_in_mill == 2 && p1_count_in_mill == 0
+            p2_nearly += 1
+        end
+    end
+
+    score += MILLS_DIFF_MULTIPLIER * (p1_mills - p2_mills)
+    score += NEARLY_MILL_MULTIPLIER * (p1_nearly - p2_nearly)
+
+    p1_intersection_count = count_ones(INTERSECTIONS_BIT_MASK & board.player_one_positions)
+    p2_intersection_count = count_ones(INTERSECTIONS_BIT_MASK & board.player_two_positions)
+
+    score += INTERSECTION_MULTIPLIER * (p1_intersection_count - p2_intersection_count)
+
+    return score
 end
 
 function mini_max_first_phase(board::Board, player::UInt8, depth::UInt8, alpha::Int32, beta::Int32)::Node
@@ -47,12 +92,11 @@ function mini_max_first_phase(board::Board, player::UInt8, depth::UInt8, alpha::
                             end
                             beta = min(beta, evaluated)
                             if beta <= alpha
-                                break
+                                @goto alpha_beta_cut
                             end
                         end
                     end
                 else
-
 
                     evaluated = mini_max_first_phase(new_board, UInt8(0), UInt8(depth - 1), alpha, beta).mini_max_estimate
 
@@ -99,7 +143,7 @@ function mini_max_first_phase(board::Board, player::UInt8, depth::UInt8, alpha::
                             end
                             alpha = max(alpha, evaluated)
                             if beta <= alpha
-                                break
+                                @goto alpha_beta_cut
                             end
                         end
                     end
@@ -121,5 +165,7 @@ function mini_max_first_phase(board::Board, player::UInt8, depth::UInt8, alpha::
             end
         end
     end
+
+    @label alpha_beta_cut
     return Node(ret, best_board)
 end

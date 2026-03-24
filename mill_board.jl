@@ -2,9 +2,10 @@ struct Board
     player_one_positions::UInt32
     player_two_positions::UInt32
 
-    player_one_pieces::UInt8
-    player_two_pieces::UInt8
+    player_one_pieces::Int8
+    player_two_pieces::Int8
 end
+
 # stores all the possible combinations for a valid mill from a given positoin
 const MILLS_BY_POSITION = [
     [[0, 1, 2], [0, 9, 21]],
@@ -72,6 +73,9 @@ end
 # creating bitmasks from these for faster operations
 const ADJACENCY_LIST_BIT_MASK = [convert_list_to_bitmask(neighbor) for neighbor in ADJACENCY_LIST]
 const MILLS_BY_POSITION_BIT_MASK = [[convert_list_to_bitmask(neighbor) for neighbor in neighbors_list] for neighbors_list in MILLS_BY_POSITION]
+const ALL_MILLS_BIT_MASK = unique(foldl(vcat, MILLS_BY_POSITION_BIT_MASK))
+const INTERSECTIONS_BIT_MASK = (UInt32(1) << 4) | (UInt32(1) << 10) | (UInt32(1) << 13) | (UInt32(1) << 19)
+
 
 # checks if a placement is valid in the first phase of the game
 function is_valid_placement(board::Board, position::UInt32)::Bool
