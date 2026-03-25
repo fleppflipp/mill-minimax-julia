@@ -158,5 +158,18 @@ function get_empty_spots_mask(board::Board)::UInt32
     empty_spots = ~(board.player_one_positions | board.player_two_positions) & typemax(UInt32)
 end
 
-function get_available_move_count(board::Board, player_inde::Bool)::Int8
+function get_available_move_count(board::Board, player_index::Bool)::UInt8
+    player_board = !player_index ? board.player_one_positions : board.player_two_positions
+
+    empty_spots = get_empty_spots_mask(board)
+
+    possible_moves = 0
+    while (player_board != 0)
+        pos = trailing_zeros(player_board)
+        possible_moves += count_ones(ADJACENCY_LIST_BIT_MASK[pos + 1] & empty_spots)
+
+        player_board $= ~(UInt32(1) << pos)
+    end
+
+    return possible_moves
 end

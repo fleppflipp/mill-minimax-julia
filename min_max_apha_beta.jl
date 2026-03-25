@@ -10,6 +10,7 @@ total_evaluations = 0
 
 # multipliers for the heauristic evaluation of the score
 const PIECE_DIFF_MULTIPLIER = 100
+const END_PIECE_DIFF_MULTIPLIER = 10000
 const MILLS_DIFF_MULTIPLIER = 40
 const NEARLY_MILL_MULTIPLIER = 20
 const INTERSECTION_MULTIPLIER = 5
@@ -218,13 +219,27 @@ end
 
 # this is just a copy of the first phase evalution for test purposes and should be extended with logic more fitting
 # for the second phase of the game
-const AVAILABLE_MOVES_MULTIPLIER = 30
+const AVAILABLE_MOVES_MULTIPLIER = 20
 function evaluate_second_phase(board::Board)::Int
     global total_evaluations += 1
 
     score = 0
 
-    score += PIECE_DIFF_MULTIPLIER * (board.player_one_pieces - board.player_two_pieces)
+    player_one_possible_move_count = get_available_move_count(board, false)
+    player_two_possible_move_count = get_available_move_count(board, true)
+
+    #   checking if the game ended
+    if  board.player_two_pieces < 3 || player_two_possible_move_count == 0
+        return typemax(Int)
+    elseif board.player_one_pieces < 3 || player_one_possible_move_count == 0
+        return typemin(Int) 
+    end
+
+    score += AVAILABLE_MOVES_MULTIPLIER * (player_one_possible_move_count * player_two_possible_move_count)
+
+
+    current_piece_diff_multiplier = (board.player_one_pieces == 3 || board.player_two_pieces == 3) ? PIECE_DIFF_MULTIPLIER : END_PIECE_DIFF_MULTIPLIER
+    score += current_piece_diff_multiplier * (board.player_one_pieces - board.player_two_pieces)
 
     p1_mills = 0
     p1_nearly = 0
@@ -251,6 +266,10 @@ function evaluate_second_phase(board::Board)::Int
 
     score += MILLS_DIFF_MULTIPLIER * (p1_mills - p2_mills)
     score += NEARLY_MILL_MULTIPLIER * (p1_nearly - p2_nearly)
+
+    p1_intersection_count = count_ones(INTERSECTIONS_BIT_MASK & board.player_one_positions)
+    p2_intersection_count = count_ones(INTERSECTIONS_BIT_MASK & board.player_two_positions)
+    score += INTERSECTION_MULTIPLIER * (p1_intersection_count - p2_intersection_count)
 
     return score
 end
