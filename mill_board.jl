@@ -122,7 +122,7 @@ end
 
 # checks if a move or placement of a piece created a new mill
 function is_mill_after_move(board::Board, position::UInt32, player_index::Bool)::Bool
-    player_board = !player_index ? board.player_one_positions : board.player_two_positions
+    player_board = player_index == false ? board.player_one_positions : board.player_two_positions
 
     for possible_mill in MILLS_BY_POSITION_BIT_MASK[position+1]
         if (player_board & possible_mill) == possible_mill
@@ -133,8 +133,8 @@ function is_mill_after_move(board::Board, position::UInt32, player_index::Bool):
     return false
 end
 
-function get_capturable_bit_mask(board::Board, enemy_index::UInt8)::UInt32
-    enemy_board = enemy_index == 0 ? board.player_one_positions : board.player_two_positions
+function get_capturable_bit_mask(board::Board, enemy_index::Bool)::UInt32
+    enemy_board = enemy_index == false ? board.player_one_positions : board.player_two_positions
 
     capturable_bit_mask = UInt32(0)
     for i in 0:23
