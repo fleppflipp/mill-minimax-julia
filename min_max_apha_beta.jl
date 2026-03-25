@@ -56,6 +56,14 @@ function evaluate_first_phase(board::Board)::Int
     return score
 end
 
+function mini_max(board::Board, player::Bool, depth::UInt8, alpha::Int, beta::Int)::Node
+    if board.total_placed < 18
+        return mini_max_first_phase(board, player, depth, alpha, beta)
+    else
+        return mini_max_second_phase(board, player, depth, alpha, beta)
+    end
+end
+
 function mini_max_first_phase(board::Board, player::Bool, depth::UInt8, alpha::Int, beta::Int)::Node
     if (depth == 0)
         return Node(evaluate_first_phase(board), board)
@@ -87,7 +95,7 @@ function mini_max_first_phase(board::Board, player::Bool, depth::UInt8, alpha::I
                 player2_piece_count = board.player_two_pieces + 1
             end
 
-            new_board = Board(player1_pos, player2_pos, player1_piece_count, player2_piece_count)
+            new_board = Board(player1_pos, player2_pos, player1_piece_count, player2_piece_count, board.total_placed + 1)
 
             child_node = process_move(new_board, pos, depth, alpha, beta, player)
 
@@ -134,9 +142,9 @@ function process_move(board::Board, pos::UInt32, depth::UInt8,alpha::Int, beta::
             other_player_pos = player ? ( board.player_one_positions & (~(UInt32(1) << capturable_piece)) ) : ( board.player_two_positions & (~(UInt32(1) << capturable_piece)) )
             other_player_piece_count = player ? board.player_one_pieces - 1 : board.player_two_pieces - 1
 
-            final_board = player ? Board(other_player_pos, board.player_two_positions, other_player_piece_count, board.player_two_pieces) : Board(board.player_one_positions, other_player_pos, board.player_one_pieces, other_player_piece_count)
+            final_board = player ? Board(other_player_pos, board.player_two_positions, other_player_piece_count, board.player_two_pieces, board.total_placed) : Board(board.player_one_positions, other_player_pos, board.player_one_pieces, other_player_piece_count, board.total_placed)
 
-            evaluated = mini_max_first_phase(final_board, !player, UInt8(depth - 1), alpha, beta).mini_max_estimate
+            evaluated = mini_max(final_board, !player, UInt8(depth - 1), alpha, beta).mini_max_estimate
 
             if (player)
                 if evaluated < ret
@@ -159,7 +167,7 @@ function process_move(board::Board, pos::UInt32, depth::UInt8,alpha::Int, beta::
             can_capture_mask &= ~(UInt32(1) << capturable_piece)
         end
     else
-        evaluated = mini_max_first_phase(board, !player, UInt8(depth - 1), alpha, beta).mini_max_estimate
+        evaluated = mini_max(board, !player, UInt8(depth - 1), alpha, beta).mini_max_estimate
 
         if (player)
             if evaluated < ret
@@ -182,8 +190,7 @@ function process_move(board::Board, pos::UInt32, depth::UInt8,alpha::Int, beta::
     return Node(ret, best_board)
 end
 
-# this is just a copy of the first phase evalution for test purposes and should be extended with logic more fitting
-# for the second phase of the game
+#for the second phase, blocking the enemys movement becomes more important
 const AVAILABLE_MOVES_MULTIPLIER = 20
 function evaluate_second_phase(board::Board)::Int
     global total_evaluations += 1
@@ -252,23 +259,30 @@ function mini_max_second_phase(board::Board, player::Bool, depth::UInt8, alpha::
     empty_spots = get_empty_spots_mask(board)
 
     player == false ? ret = typemin(Int) : ret = typemax(Int)
-
     player == false ? player_positions = board.player_one_positions : player_positions = board.player_two_positions
+    
+    # checking if we entered end game, thus if we can jump
+    can_jump = false
+    if !player && board.player_one_pieces == 3 
+        can_jump = true
+    elseif player && board.player_two_pieces == 3
+        can_jump = true
+    end
 
     while (player_positions != 0)
             # the place of first one, from the players pieces, is the starting position of our move
             from_move = trailing_zeros(player_positions)
 
-            valid_moves_bit_mask = ADJACENCY_LIST_BIT_MASK[from_move+1] & empty_spots
+        valid_moves_bit_mask = can_jump ? empty_spots : ADJACENCY_LIST_BIT_MASK[from_move+1] & empty_spots
             while (valid_moves_bit_mask != 0)
-                to_move = trailing_zeros(valid_moves_bit_mask)
+                to_move = UInt32(trailing_zeros(valid_moves_bit_mask))
 
                 if (player == false)
                     new_p1_position = board.player_one_positions & ~(UInt32(1) << from_move) | (UInt32(1) << to_move)    
-                    new_board = Board(new_p1_position, board.player_two_positions, board.player_one_pieces, board.player_two_pieces)
+                    new_board = Board(new_p1_position, board.player_two_positions, board.player_one_pieces, board.player_two_pieces, board.total_placed)
                 else
                     new_p2_position = board.player_two_positions & ~(UInt32(1) << from_move) | (UInt32(1) << to_move)
-                    new_board = Board(board.player_one_positions, new_p2_position, board.player_one_pieces, board.player_two_pieces)
+                new_board = Board(board.player_one_positions, new_p2_position, board.player_one_pieces, board.player_two_pieces, board.total_placed)
                 end
 
                 child_node = process_move(new_board, to_move, depth, alpha, beta, player)

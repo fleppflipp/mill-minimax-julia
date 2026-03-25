@@ -4,6 +4,8 @@ struct Board
 
     player_one_pieces::Int8
     player_two_pieces::Int8
+
+    total_placed::Int8
 end
 
 # stores all the possible combinations for a valid mill from a given positoin
@@ -155,7 +157,7 @@ function get_capturable_bit_mask(board::Board, enemy_index::Bool)::UInt32
 end
 
 function get_empty_spots_mask(board::Board)::UInt32
-    empty_spots = ~(board.player_one_positions | board.player_two_positions) & typemax(UInt32)
+    empty_spots = ~(board.player_one_positions | board.player_two_positions) & 0x00FFFFFF
 end
 
 function get_available_move_count(board::Board, player_index::Bool)::UInt8
@@ -168,7 +170,7 @@ function get_available_move_count(board::Board, player_index::Bool)::UInt8
         pos = trailing_zeros(player_board)
         possible_moves += count_ones(ADJACENCY_LIST_BIT_MASK[pos + 1] & empty_spots)
 
-        player_board $= ~(UInt32(1) << pos)
+        player_board &= ~(UInt32(1) << pos)
     end
 
     return possible_moves
