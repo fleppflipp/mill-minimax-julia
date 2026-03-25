@@ -153,3 +153,10 @@ function get_capturable_bit_mask(board::Board, enemy_index::Bool)::UInt32
 
     return capturable_bit_mask
 end
+
+function get_empty_spots_mask(board::Board)::UInt32
+    empty_spots = ~(board.player_one_positions | board.player_two_positions) & typemax(UInt32)
+end
+
+function get_available_move_count(board::Board, player_inde::Bool)::Int8
+end

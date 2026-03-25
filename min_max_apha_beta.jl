@@ -66,9 +66,12 @@ function mini_max_first_phase(board::Board, player::Bool, depth::UInt8, alpha::I
 
     # the minimizer player
     if player
+
         ret = typemax(Int)
-        for i in 0:23
-            pos = UInt32(i)
+        empty_spots = get_empty_spots_mask(board)
+
+        while (empty_spots != 0)
+            pos = UInt32(trailing_zeros(empty_spots))
             if (is_valid_placement(board, pos))
                 child_node = first_phase_action(board, pos, depth, alpha, beta, player)
 
@@ -94,11 +97,14 @@ function mini_max_first_phase(board::Board, player::Bool, depth::UInt8, alpha::I
                 end
 
             end
+            empty_spots &= ~(UInt32(1) << pos)
         end
     else
         ret = typemin(Int)
-        for i in 0:23
-            pos = UInt32(i)
+        empty_spots = get_empty_spots_mask(board)
+
+        while (empty_spots != 0)
+            pos = UInt32(trailing_zeros(empty_spots))
             if (is_valid_placement(board, pos))
                 child_node = first_phase_action(board, pos, depth, alpha, beta, player)
 
@@ -123,6 +129,7 @@ function mini_max_first_phase(board::Board, player::Bool, depth::UInt8, alpha::I
                     return Node(ret, best_board)
                 end
             end
+            empty_spots &= ~(UInt32(1) << pos)
         end
     end
 
@@ -208,8 +215,10 @@ function first_phase_action(board::Board, pos::UInt32, depth::UInt8,alpha::Int, 
     end
     return Node(ret, best_board)
 end
+
 # this is just a copy of the first phase evalution for test purposes and should be extended with logic more fitting
 # for the second phase of the game
+const AVAILABLE_MOVES_MULTIPLIER = 30
 function evaluate_second_phase(board::Board)::Int
     global total_evaluations += 1
 
@@ -243,13 +252,9 @@ function evaluate_second_phase(board::Board)::Int
     score += MILLS_DIFF_MULTIPLIER * (p1_mills - p2_mills)
     score += NEARLY_MILL_MULTIPLIER * (p1_nearly - p2_nearly)
 
-    p1_intersection_count = count_ones(INTERSECTIONS_BIT_MASK & board.player_one_positions)
-    p2_intersection_count = count_ones(INTERSECTIONS_BIT_MASK & board.player_two_positions)
-
-    score += INTERSECTION_MULTIPLIER * (p1_intersection_count - p2_intersection_count)
-
     return score
 end
+
 
 # this function does not abide by the DRY principles at all, and should be refactored as soon as possible,
 # to make it readable at all xD
@@ -262,8 +267,7 @@ function mini_max_second_phase(board::Board, player::Bool, depth::UInt8, alpha::
     end
 
     best_board = board
-    # getting the empty places, by combining both players pieces,negating, and cutting off the last unused ones, by and-ing with a full ones
-    empty_spots = ~(board.player_one_positions | board.player_two_positions) & typemax(UInt32)
+    empty_spots = get_empty_spots_mask(board)
 
     # the minimizer player
     if (player)
