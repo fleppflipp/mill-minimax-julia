@@ -57,7 +57,7 @@ end
 
 # this function does not abide by the DRY principles at all, and should be refactored as soon as possible,
 # to make it readable at all xD
-function mini_max_first_phase(board::Board, player::UInt8, depth::UInt8, alpha::Int, beta::Int)::Node
+function mini_max_first_phase(board::Board, player::Bool, depth::UInt8, alpha::Int, beta::Int)::Node
     if (depth == 0)
         return Node(evaluate_first_phase(board), board)
     end
@@ -65,55 +65,34 @@ function mini_max_first_phase(board::Board, player::UInt8, depth::UInt8, alpha::
     best_board = board
 
     # the minimizer player
-    if player == 1
+    if player
         ret = typemax(Int)
         for i in 0:23
             pos = UInt32(i)
             if (is_valid_placement(board, pos))
-                new_p2_pos = board.player_two_positions | (UInt32(1) << pos)
-                new_p2_piece_count = board.player_two_pieces + 1
+                child_node = first_phase_action(board, pos, depth, alpha, beta, player)
 
-                new_board = Board(board.player_one_positions, new_p2_pos, board.player_one_pieces, new_p2_piece_count)
+                evaluated_score = child_node.score
+                evaluated_board = child_node.board
 
-                if (is_mill_after_move(new_board, pos, UInt8(1)))
-                    can_capture_mask = get_capurable_bit_mask(new_board, UInt8(0))
-
-                    for j in 0:23
-                        capture_piece_bit = UInt32(1) << j
-
-                        if (can_capture_mask & capture_piece_bit) != 0
-                            new_p1_position = new_board.player_one_positions & (~capture_piece_bit)
-                            new_p1_piece_count = new_board.player_one_pieces - 1
-
-                            final_board = Board(new_p1_position, new_p2_pos, new_p1_piece_count, new_p2_piece_count)
-
-                            evaluated = mini_max_first_phase(final_board, UInt8(0), UInt8(depth - 1), alpha, beta).mini_max_estimate
-
-                            if evaluated < ret
-                                ret = evaluated
-                                best_board = final_board
-                            end
-                            beta = min(beta, evaluated)
-                            if beta <= alpha
-                                @goto alpha_beta_cut
-                            end
-                        end
+                if (player)
+                    if evaluated_score < ret
+                        ret = evaluated_score
+                        best_board = evaluated_board
                     end
+                    beta = min(beta, evaluated_score)
                 else
-
-                    evaluated = mini_max_first_phase(new_board, UInt8(0), UInt8(depth - 1), alpha, beta).mini_max_estimate
-
-                    if evaluated < ret
-                        ret = evaluated
-                        best_board = new_board
+                    if evaluated_score > ret
+                        ret = evaluated_score
+                        best_board = evaluated_board
                     end
-
-                    beta = min(beta, evaluated)
-
-                    if beta <= alpha
-                        break
-                    end
+                    alpha = max(alpha, evaluated_score)
                 end
+            
+                if beta <= alpha
+                    return Node(ret, best_board)
+                end
+
             end
         end
     else
@@ -121,58 +100,102 @@ function mini_max_first_phase(board::Board, player::UInt8, depth::UInt8, alpha::
         for i in 0:23
             pos = UInt32(i)
             if (is_valid_placement(board, pos))
-                new_p1_pos = board.player_one_positions | (UInt32(1) << pos)
-                new_p1_piece_count = board.player_one_pieces + 1
+                child_node = first_phase_action(board, pos, depth, alpha, beta, player)
 
-                new_board = Board(new_p1_pos, board.player_two_positions, new_p1_piece_count, board.player_two_pieces)
+                evaluated_score = child_node.mini_max_estimate
+                evaluated_board = child_node.board
 
-                if (is_mill_after_move(new_board, pos, UInt8(0)))
-                    can_capture_mask = get_capurable_bit_mask(new_board, UInt8(1))
-
-                    for j in 0:23
-                        capture_piece_bit = UInt32(1) << j
-
-                        if (can_capture_mask & capture_piece_bit) != 0
-                            new_p2_position = new_board.player_two_positions & (~capture_piece_bit)
-                            new_p2_piece_count = new_board.player_two_pieces - 1
-
-                            final_board = Board(new_p1_pos, new_p2_position, new_p1_piece_count, new_p2_piece_count)
-
-                            evaluated = mini_max_first_phase(final_board, UInt8(1), UInt8(depth - 1), alpha, beta).mini_max_estimate
-
-                            if evaluated > ret
-                                ret = evaluated
-                                best_board = final_board
-                            end
-                            alpha = max(alpha, evaluated)
-                            if beta <= alpha
-                                @goto alpha_beta_cut
-                            end
-                        end
+                if (player)
+                    if evaluated_score < ret
+                        ret = evaluated_score
+                        best_board = evaluated_board
                     end
+                    beta = min(beta, evaluated_score)
                 else
-
-                    evaluated = mini_max_first_phase(new_board, UInt8(1), UInt8(depth - 1), alpha, beta).mini_max_estimate
-
-                    if evaluated > ret
-                        ret = evaluated
-                        best_board = new_board
+                    if evaluated_score > ret
+                        ret = evaluated_score
+                        best_board = evaluated_board
                     end
-
-                    alpha = max(alpha, evaluated)
-
-                    if beta <= alpha
-                        break
-                    end
+                    alpha = max(alpha, evaluated_score)
+                end
+            
+                if beta <= alpha
+                    return Node(ret, best_board)
                 end
             end
         end
     end
 
-    @label alpha_beta_cut
     return Node(ret, best_board)
 end
 
+function first_phase_action(board::Board, pos::UInt32, depth::UInt8,alpha::Int, beta::Int, player::Bool)::Node
+    
+    curr_player_pos = player ? board.player_two_positions | (UInt32(1) << pos) : board.player_one_positions | (UInt32(1) << pos)
+    curr_player_piece_count = player ? board.player_two_pieces + 1 : board.player_one_pieces + 1
+
+    new_board = Board(board.player_one_positions, curr_player_pos, board.player_one_pieces, curr_player_piece_count)
+
+    player != 0 ? ret = typemax(Int) : ret = typemin(Int)
+
+    best_board = new_board
+
+    if (is_mill_after_move(board, pos, player))
+        can_capture_mask = get_capturable_bit_mask(board, UInt8(1 - player))
+
+        while (can_capture_mask)
+            capturable_piece = trailing_zeros(can_capture_mask)
+
+            other_player_pos = player ? ( board.player_one_positions & (~capturable_piece) ) : ( board.player_two_positions & (~capturable_piece) )
+            other_player_piece_count = player ? board.player_one_pieces - 1 : board.player_two_pieces - 1
+
+            final_board = Board(other_player_pos, curr_player_pos, other_player_piece_count, curr_player_piece_count)
+
+            evaluated = mini_max_first_phase(final_board, false, UInt8(depth - 1), alpha, beta).mini_max_estimate
+
+            if (player != 0)
+                if evaluated < ret
+                    ret = evaluated
+                    best_board = final_board
+                end
+                beta = min(beta, evaluated)
+            else
+                if evaluated > ret
+                    ret = evaluated
+                    best_board = final_board
+                end
+                alpha = max(alpha, evaluated)
+            end
+            
+            if beta <= alpha
+                return Node(ret, best_board)
+            end
+
+            can_capture_mask &= ~(UInt32(1) << capturable_piece)
+        end
+    else
+        evaluated = mini_max_first_phase(new_board, false, UInt8(depth - 1), alpha, beta).mini_max_estimate
+
+        if (player)
+            if evaluated < ret
+                ret = evaluated
+                best_board = new_board
+            end
+        else
+            if evaluated > ret
+                ret = evaluated
+                best_board = new_board
+            end
+        end
+
+        player ? beta = min(beta, evaluated) : alpha = max(alpha, evaluated)
+
+        if beta <= alpha
+            return Node(ret, best_board)
+        end
+    end
+    return Node(ret, best_board)
+end
 # this is just a copy of the first phase evalution for test purposes and should be extended with logic more fitting
 # for the second phase of the game
 function evaluate_second_phase(board::Board)::Int
@@ -218,7 +241,7 @@ end
 
 # this function does not abide by the DRY principles at all, and should be refactored as soon as possible,
 # to make it readable at all xD
-function mini_max_second_phase(board::Board, player::UInt8, depth::UInt8, alpha::Int, beta::Int)::Node
+function mini_max_second_phase(board::Board, player::Bool, depth::UInt8, alpha::Int, beta::Int)::Node
 
     # check if the game ended
     board_eval = evaluate_second_phase(board)
@@ -231,13 +254,13 @@ function mini_max_second_phase(board::Board, player::UInt8, depth::UInt8, alpha:
     empty_spots = ~(board.player_one_positions | board.player_two_positions) & typemax(UInt32)
 
     # the minimizer player
-    if (player == 1)
+    if (player)
         ret = typemax(Int)
 
         player_positions = board.player_two_positions
 
         while (player_positions != 0)
-            # the place of first one, from the players pices, is the starting position of our move
+            # the place of first one, from the players pieces, is the starting position of our move
             from_move = trailing_zeros(player_positions)
 
             valid_moves_bit_mask = ADJACENCY_LIST_BIT_MASK[from_move+1] & empty_spots
@@ -248,7 +271,7 @@ function mini_max_second_phase(board::Board, player::UInt8, depth::UInt8, alpha:
                 new_board = Board(board.player_one_positions, new_p2_position, board.player_one_pieces, board.player_two_pieces)
 
                 if (is_mill_after_move(new_board, UInt32(to_move), UInt8(1)))
-                    can_capture_mask = get_capurable_bit_mask(new_board, UInt8(0))
+                    can_capture_mask = get_capturable_bit_mask(new_board, UInt8(0))
 
                     for j in 0:23
                         capture_piece_bit = UInt32(1) << j
@@ -308,7 +331,7 @@ function mini_max_second_phase(board::Board, player::UInt8, depth::UInt8, alpha:
                 new_board = Board(new_p1_position, board.player_two_positions, board.player_one_pieces, board.player_two_pieces)
 
                 if (is_mill_after_move(new_board, UInt32(to_move), UInt8(0)))
-                    can_capture_mask = get_capurable_bit_mask(new_board, UInt8(1))
+                    can_capture_mask = get_capturable_bit_mask(new_board, UInt8(1))
 
                     for j in 0:23
                         capture_piece_bit = UInt32(1) << j

@@ -92,7 +92,7 @@ function is_valid_placement(board::Board, position::UInt32)::Bool
 end
 
 # checks if a move is valid in the second and third phases of the game
-function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_index::UInt8)::Bool
+function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_index::Bool)::Bool
     if (start_pos > 23) || (end_pos > 23)
         return false
     end
@@ -108,7 +108,7 @@ function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_
     end
 
     # if in third phase, you can jump, no more checks needed
-    if (player_index == 0 && board.player_one_pieces == 3) || (player_index == 1 && board.player_two_pieces == 3)
+    if (!player_index && board.player_one_pieces == 3) || (player_index && board.player_two_pieces == 3)
         return true
     end
 
@@ -121,8 +121,8 @@ function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_
 end
 
 # checks if a move or placement of a piece created a new mill
-function is_mill_after_move(board::Board, position::UInt32, player_index::UInt8)::Bool
-    player_board = player_index == 0 ? board.player_one_positions : board.player_two_positions
+function is_mill_after_move(board::Board, position::UInt32, player_index::Bool)::Bool
+    player_board = !player_index ? board.player_one_positions : board.player_two_positions
 
     for possible_mill in MILLS_BY_POSITION_BIT_MASK[position+1]
         if (player_board & possible_mill) == possible_mill
@@ -133,7 +133,7 @@ function is_mill_after_move(board::Board, position::UInt32, player_index::UInt8)
     return false
 end
 
-function get_capurable_bit_mask(board::Board, enemy_index::UInt8)::UInt32
+function get_capturable_bit_mask(board::Board, enemy_index::UInt8)::UInt32
     enemy_board = enemy_index == 0 ? board.player_one_positions : board.player_two_positions
 
     capturable_bit_mask = UInt32(0)
