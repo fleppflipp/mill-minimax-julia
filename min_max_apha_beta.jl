@@ -55,8 +55,6 @@ function evaluate_first_phase(board::Board)::Int
     return score
 end
 
-# this function does not abide by the DRY principles at all, and should be refactored as soon as possible,
-# to make it readable at all xD
 function mini_max_first_phase(board::Board, player::Bool, depth::UInt8, alpha::Int, beta::Int)::Node
     if (depth == 0)
         return Node(evaluate_first_phase(board), board)
@@ -64,75 +62,40 @@ function mini_max_first_phase(board::Board, player::Bool, depth::UInt8, alpha::I
 
     best_board = board
 
-    # the minimizer player
-    if player
+    player == false ? ret = typemin(Int) : ret = typemax(Int)
 
-        ret = typemax(Int)
-        empty_spots = get_empty_spots_mask(board)
+    empty_spots = get_empty_spots_mask(board)
 
-        while (empty_spots != 0)
-            pos = UInt32(trailing_zeros(empty_spots))
-            if (is_valid_placement(board, pos))
-                child_node = first_phase_action(board, pos, depth, alpha, beta, player)
+    while (empty_spots != 0)
+        pos = UInt32(trailing_zeros(empty_spots))
+        if (is_valid_placement(board, pos))
+            child_node = first_phase_action(board, pos, depth, alpha, beta, player)
 
-                evaluated_score = child_node.mini_max_estimate
-                evaluated_board = child_node.board
+            evaluated_score = child_node.mini_max_estimate
+            evaluated_board = child_node.board
 
-                if (player)
-                    if evaluated_score < ret
-                        ret = evaluated_score
-                        best_board = evaluated_board
-                    end
-                    beta = min(beta, evaluated_score)
-                else
-                    if evaluated_score > ret
-                        ret = evaluated_score
-                        best_board = evaluated_board
-                    end
-                    alpha = max(alpha, evaluated_score)
+            if (player)
+                if evaluated_score < ret
+                    ret = evaluated_score
+                    best_board = evaluated_board
                 end
-            
-                if beta <= alpha
-                    return Node(ret, best_board)
+                beta = min(beta, evaluated_score)
+            else
+                if evaluated_score > ret
+                    ret = evaluated_score
+                    best_board = evaluated_board
                 end
-
+                alpha = max(alpha, evaluated_score)
             end
-            empty_spots &= ~(UInt32(1) << pos)
-        end
-    else
-        ret = typemin(Int)
-        empty_spots = get_empty_spots_mask(board)
-
-        while (empty_spots != 0)
-            pos = UInt32(trailing_zeros(empty_spots))
-            if (is_valid_placement(board, pos))
-                child_node = first_phase_action(board, pos, depth, alpha, beta, player)
-
-                evaluated_score = child_node.mini_max_estimate
-                evaluated_board = child_node.board
-
-                if (player)
-                    if evaluated_score < ret
-                        ret = evaluated_score
-                        best_board = evaluated_board
-                    end
-                    beta = min(beta, evaluated_score)
-                else
-                    if evaluated_score > ret
-                        ret = evaluated_score
-                        best_board = evaluated_board
-                    end
-                    alpha = max(alpha, evaluated_score)
-                end
             
-                if beta <= alpha
-                    return Node(ret, best_board)
-                end
+            if beta <= alpha
+                return Node(ret, best_board)
             end
-            empty_spots &= ~(UInt32(1) << pos)
+
         end
+        empty_spots &= ~(UInt32(1) << pos)
     end
-
+               
     return Node(ret, best_board)
 end
 
