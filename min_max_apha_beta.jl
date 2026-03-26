@@ -81,11 +81,6 @@ function mini_max_first_phase(board::Board, player::Bool, depth::UInt8, alpha::I
             evaluated_score = child_node.mini_max_estimate
             evaluated_board = child_node.board
 
-            # on an equal state, we choose randomly, to make it more human-like
-            if evaluated_score == ret && rand(Bool)
-                best_board = evaluated_board
-            end
-
             if player ? (evaluated_score < ret) : (evaluated_score > ret)
                 ret = evaluated_score
                 best_board = evaluated_board
@@ -244,11 +239,6 @@ function mini_max_second_phase(board::Board, player::Bool, depth::UInt8, alpha::
 
             evaluated_score = child_node.mini_max_estimate
             evaluated_board = child_node.board
-
-            # on an equal state, we choose randomly, to make it more human-like
-            if evaluated_score == ret && rand(Bool)
-                best_board = evaluated_board
-            end
 
             if player ? (evaluated_score < ret) : (evaluated_score > ret)
                 ret = evaluated_score
