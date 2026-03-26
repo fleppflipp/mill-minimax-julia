@@ -5,7 +5,7 @@ struct Node
     board::Board
 end
 
-total_evaluations = 0
+total_evaluations::UInt32 = 0
 
 
 # multipliers for the heauristic evaluation of the score
