@@ -22,28 +22,7 @@ function evaluate_first_phase(board::Board)::Int
 
     score += PIECE_DIFF_MULTIPLIER * (board.player_one_pieces - board.player_two_pieces)
 
-    p1_mills = 0
-    p1_nearly = 0
-
-    p2_mills = 0
-    p2_nearly = 0
-    for mill_mask in ALL_MILLS_BIT_MASK
-
-        p1_count_in_mill = count_ones(mill_mask & board.player_one_positions)
-        p2_count_in_mill = count_ones(mill_mask & board.player_two_positions)
-
-        if (p1_count_in_mill == 3)
-            p1_mills += 1
-        elseif p1_count_in_mill == 2 && p2_count_in_mill == 0
-            p1_nearly += 1
-        end
-
-        if (p2_count_in_mill == 3)
-            p2_mills += 1
-        elseif p2_count_in_mill == 2 && p1_count_in_mill == 0
-            p2_nearly += 1
-        end
-    end
+    p1_mills, p1_nearly, p2_mills, p2_nearly = get_mills_and_nearly(board)
 
     score += MILLS_DIFF_MULTIPLIER * (p1_mills - p2_mills)
     score += NEARLY_MILL_MULTIPLIER * (p1_nearly - p2_nearly)
@@ -212,29 +191,8 @@ function evaluate_second_phase(board::Board)::Int
 
     current_piece_diff_multiplier = (board.player_one_pieces == 3 || board.player_two_pieces == 3) ? PIECE_DIFF_MULTIPLIER : END_PIECE_DIFF_MULTIPLIER
     score += current_piece_diff_multiplier * (board.player_one_pieces - board.player_two_pieces)
-
-    p1_mills = 0
-    p1_nearly = 0
-
-    p2_mills = 0
-    p2_nearly = 0
-    for mill_mask in ALL_MILLS_BIT_MASK
-
-        p1_count_in_mill = count_ones(mill_mask & board.player_one_positions)
-        p2_count_in_mill = count_ones(mill_mask & board.player_two_positions)
-
-        if (p1_count_in_mill == 3)
-            p1_mills += 1
-        elseif p1_count_in_mill == 2 && p2_count_in_mill == 0
-            p1_nearly += 1
-        end
-
-        if (p2_count_in_mill == 3)
-            p2_mills += 1
-        elseif p2_count_in_mill == 2 && p1_count_in_mill == 0
-            p2_nearly += 1
-        end
-    end
+    
+    p1_mills, p1_nearly, p2_mills, p2_nearly = get_mills_and_nearly(board)
 
     score += MILLS_DIFF_MULTIPLIER * (p1_mills - p2_mills)
     score += NEARLY_MILL_MULTIPLIER * (p1_nearly - p2_nearly)

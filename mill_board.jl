@@ -80,7 +80,7 @@ const INTERSECTIONS_BIT_MASK = (UInt32(1) << 4) | (UInt32(1) << 10) | (UInt32(1)
 
 
 # checks if a placement is valid in the first phase of the game
-function is_valid_placement(board::Board, position::UInt32)::Bool
+@inline function is_valid_placement(board::Board, position::UInt32)::Bool
 
     if position > 23
         return false
@@ -94,7 +94,7 @@ function is_valid_placement(board::Board, position::UInt32)::Bool
 end
 
 # checks if a move is valid in the second and third phases of the game
-function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_index::Bool)::Bool
+@inline function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_index::Bool)::Bool
     if (start_pos > 23) || (end_pos > 23)
         return false
     end
@@ -123,7 +123,7 @@ function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_
 end
 
 # checks if a move or placement of a piece created a new mill
-function is_mill_after_move(board::Board, position::UInt32, player_index::Bool)::Bool
+@inline function is_mill_after_move(board::Board, position::UInt32, player_index::Bool)::Bool
     player_board = player_index == false ? board.player_one_positions : board.player_two_positions
 
     for possible_mill in MILLS_BY_POSITION_BIT_MASK[position+1]
@@ -135,7 +135,7 @@ function is_mill_after_move(board::Board, position::UInt32, player_index::Bool):
     return false
 end
 
-function get_capturable_bit_mask(board::Board, enemy_index::Bool)::UInt32
+@inline function get_capturable_bit_mask(board::Board, enemy_index::Bool)::UInt32
     enemy_board = enemy_index == false ? board.player_one_positions : board.player_two_positions
 
     capturable_bit_mask = UInt32(0)
@@ -156,11 +156,11 @@ function get_capturable_bit_mask(board::Board, enemy_index::Bool)::UInt32
     return capturable_bit_mask
 end
 
-function get_empty_spots_mask(board::Board)::UInt32
+@inline function get_empty_spots_mask(board::Board)::UInt32
     empty_spots = ~(board.player_one_positions | board.player_two_positions) & 0x00FFFFFF
 end
 
-function get_available_move_count(board::Board, player_index::Bool)::UInt8
+@inline  function get_available_move_count(board::Board, player_index::Bool)::UInt8
     player_board = !player_index ? board.player_one_positions : board.player_two_positions
 
     empty_spots = get_empty_spots_mask(board)
@@ -174,4 +174,31 @@ function get_available_move_count(board::Board, player_index::Bool)::UInt8
     end
 
     return possible_moves
+end
+
+@inline function get_mills_and_nearly(board::Board)
+    p1_mills = 0
+    p1_nearly = 0
+
+    p2_mills = 0
+    p2_nearly = 0
+    for mill_mask in ALL_MILLS_BIT_MASK
+
+        p1_count_in_mill = count_ones(mill_mask & board.player_one_positions)
+        p2_count_in_mill = count_ones(mill_mask & board.player_two_positions)
+
+        if (p1_count_in_mill == 3)
+            p1_mills += 1
+        elseif p1_count_in_mill == 2 && p2_count_in_mill == 0
+            p1_nearly += 1
+        end
+
+        if (p2_count_in_mill == 3)
+            p2_mills += 1
+        elseif p2_count_in_mill == 2 && p1_count_in_mill == 0
+            p2_nearly += 1
+        end
+    end
+
+    return p1_mills, p1_nearly, p2_mills, p2_nearly
 end
