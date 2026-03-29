@@ -5,18 +5,24 @@
   <object class="GtkWindow" id="window">
     <property name="can-focus">False</property>
     <child>
-      <object class="GtkBox" id="canvas_container">
+      <object class="GtkEventBox" id="canvas_event_container">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
-        <property name="orientation">vertical</property>
         <child>
-          <placeholder/>
-        </child>
-        <child>
-          <placeholder/>
-        </child>
-        <child>
-          <placeholder/>
+          <object class="GtkBox" id="canvas_container">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="orientation">vertical</property>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+          </object>
         </child>
       </object>
     </child>

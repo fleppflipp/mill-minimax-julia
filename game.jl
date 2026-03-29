@@ -5,10 +5,40 @@ LINE_WIDTH = 3.0
 MARGIN = 0.9
 POINT_SIZE = 1.0
 
+const POINTS = []
+
+const index_transform = Dict(
+    1 => 0,
+    2 => 9,
+    3 => 21,
+    4 => 1,
+    5 => 22,
+    6 => 2,
+    7 => 14,
+    8 => 23,
+    9 => 3,
+    10 => 10,
+    11 => 18,
+    12 => 4,
+    13 => 19,
+    14 => 5,
+    15 => 13,
+    16 => 20,
+    17 => 6,
+    18 => 11,
+    19 => 15,
+    20 => 7,
+    21 => 16,
+    22 => 8,
+    23 => 12,
+    24 => 17
+)
+
 # Reading in all the elemenets from the Glade file
 builder = GtkBuilder(filename="Mill.glade")
 window = builder["window"]
 
+event_container = builder["canvas_event_container"]
 container = builder["canvas_container"]
 
 canvas = GtkCanvas()
@@ -57,6 +87,8 @@ function draw_board(widget)
                 if col == start_pos + step_size && row == start_pos + step_size
                     continue
                 end
+
+                push!(POINTS, (col, row))
 
                 draw_point(ctx, col, row)
 
@@ -115,6 +147,34 @@ end
 end
 
 showall(window)
+
+signal_connect(event_container, "button-press-event") do widget, event
+    # Recalculating the board size
+    w = width(canvas)
+    h = height(canvas)
+
+    board_size = min(w, h) * MARGIN
+    offset_x = (w - board_size) / 2
+    offset_y = (h - board_size) / 2
+    scale_factor = board_size / SCALE
+
+    # Transforming the raw (x, y) coordinates for the board's (x, y) coordinates
+    transformed_x = (event.x - offset_x) / scale_factor
+    transformed_y = (event.y - offset_y) / scale_factor
+
+    for(index, (point_x, point_y)) in enumerate(POINTS)
+        distance = hypot(transformed_x - point_x, transformed_y - point_y)
+
+        if distance <= POINT_SIZE
+            println("Clicked button ", index_transform[index])
+            return true
+        end
+
+    end
+
+    println("Nothing was clicked!")
+    return true
+end
 
 # Branch so it doesnt automaticaly closes
 if !isinteractive()
