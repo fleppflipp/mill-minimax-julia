@@ -1,11 +1,10 @@
 using Gtk, Cairo
+include("min_max_apha_beta.jl")
 
-SCALE = 100.0
-LINE_WIDTH = 3.0
-MARGIN = 0.9
-POINT_SIZE = 1.0
-
-const POINTS = []
+const SCALE = 100.0
+const MARGIN = 0.9
+const POINT_SIZE = 1.0
+const MAX_DEPTH = 6
 
 const index_transform = Dict(
     1 => 0,
@@ -34,6 +33,8 @@ const index_transform = Dict(
     24 => 17
 )
 
+global board = Board(UInt32(0), UInt32(0), UInt8(0), UInt8(0), Int8(0))
+
 # Reading in all the elemenets from the Glade file
 builder = GtkBuilder(filename="Mill.glade")
 window = builder["window"]
@@ -41,7 +42,7 @@ window = builder["window"]
 event_container = builder["canvas_event_container"]
 container = builder["canvas_container"]
 
-canvas = GtkCanvas()
+global canvas = GtkCanvas()
 
 # Telling the canvas to expand the container dynamically
 set_gtk_property!(canvas, :hexpand, true)
@@ -49,61 +50,78 @@ set_gtk_property!(canvas, :vexpand, true)
 
 push!(container, canvas)
 
+function generate_board_points()
+    pts = []
+    POS_OFFSET = 15
+    start_pos = 0
+    end_pos = SCALE
+
+    for _ in 0:2
+        step_size = (end_pos - start_pos) / 2
+        for col in start_pos:step_size:end_pos
+            for row in start_pos:step_size:end_pos
+                if col == start_pos + step_size && row == start_pos + step_size
+                    continue
+                end
+                push!(pts, (col, row))
+            end
+        end
+        start_pos += POS_OFFSET
+        end_pos -= POS_OFFSET
+    end
+    return pts
+end
+
+const points = generate_board_points()
+
 function draw_board(widget)
-    # Cairo's graphic context
+    global points
     ctx = getgc(widget)
+
+    save(ctx)
+
+    set_source_rgb(ctx, 0.96, 0.96, 0.96)
+    paint(ctx)
 
     w = width(widget)
     h = height(widget)
 
-    # Leaving a bit of a margin
     board_size = min(w, h) * MARGIN
-
     offset_x = (w - board_size) / 2
     offset_y = (h - board_size) / 2
 
-    # Moving the starting (0,0) point
     translate(ctx, offset_x, offset_y)
-
     scale_factor = board_size / SCALE
     scale(ctx, scale_factor, scale_factor)
 
-    set_line_width(ctx, LINE_WIDTH / scale_factor)
+    set_line_width(ctx, 3.0 / scale_factor)
     set_source_rgb(ctx, 0.0, 0.0, 0.0)
 
     POS_OFFSET = 15
     start_pos = 0
     end_pos = SCALE
 
-    # Three set of squares make up the board
-    for nr_of_square in range(0, 2)
-
+    for nr_of_square in 0:2
         step_size = (end_pos - start_pos) / 2
-
         for col in start_pos:step_size:end_pos
             for row in start_pos:step_size:end_pos
-
-                # We skip over the middle point
                 if col == start_pos + step_size && row == start_pos + step_size
                     continue
                 end
-
-                push!(POINTS, (col, row))
-
-                draw_point(ctx, col, row)
-
-                # If we reach the second point in the col we start drawing the lines
+                
+                # Draw vertical lines within the square
                 if row > start_pos && col != start_pos + step_size
                     draw_line(ctx, col, row, col, row - step_size)
                 end
             end
 
-            # Connecting the first row and last row points
+            # Draw horizontal lines within the square
             if col != start_pos
                 draw_line(ctx, col, start_pos, col - step_size, start_pos)
                 draw_line(ctx, col, end_pos, col - step_size, end_pos)
             end
 
+            # Draw cross lines connecting the squares
             if nr_of_square >= 1
                 if col != start_pos + step_size
                     col == start_pos ? x_coord = col - POS_OFFSET : x_coord = col + POS_OFFSET
@@ -118,15 +136,53 @@ function draw_board(widget)
                     y_bot_end = end_pos + POS_OFFSET
                     draw_line(ctx, col, y_bot_start, col, y_bot_end)
                 end
-                
             end
-
         end
-
         start_pos += POS_OFFSET
         end_pos -= POS_OFFSET
     end
 
+    # Draw the black board points
+    for (x, y) in points
+        arc(ctx, x, y, POINT_SIZE, 0, 2*pi)
+        fill(ctx)
+    end
+
+    # Draw the player pieces
+    draw_pieces(ctx)
+
+    restore(ctx)
+end
+
+function draw_pieces(ctx)
+    global board
+    global points
+
+    for (i, (x, y)) in enumerate(points)
+        if i > 24 
+            break 
+        end
+
+        bit_index = index_transform[i]
+        
+        if (board.player_one_positions & (UInt32(1) << bit_index)) != 0
+            # White piece for Player 1
+            set_source_rgb(ctx, 1.0, 1.0, 1.0) 
+            arc(ctx, x, y, POINT_SIZE * 4, 0, 2*pi)
+            fill(ctx)
+            
+            set_source_rgb(ctx, 0.0, 0.0, 0.0)
+            set_line_width(ctx, 0.5)
+            arc(ctx, x, y, POINT_SIZE * 4, 0, 2*pi)
+            stroke(ctx)
+            
+        elseif (board.player_two_positions & (UInt32(1) << bit_index)) != 0
+            # Black piece for Player 2
+            set_source_rgb(ctx, 0.0, 0.0, 0.0) 
+            arc(ctx, x, y, POINT_SIZE * 4, 0, 2*pi)
+            fill(ctx)
+        end
+    end
 end
 
 function draw_point(ctx, x, y)
@@ -148,8 +204,10 @@ end
 
 showall(window)
 
-signal_connect(event_container, "button-press-event") do widget, event
-    # Recalculating the board size
+function handle_click(widget, event)
+    global board
+    global canvas
+
     w = width(canvas)
     h = height(canvas)
 
@@ -158,23 +216,40 @@ signal_connect(event_container, "button-press-event") do widget, event
     offset_y = (h - board_size) / 2
     scale_factor = board_size / SCALE
 
-    # Transforming the raw (x, y) coordinates for the board's (x, y) coordinates
     transformed_x = (event.x - offset_x) / scale_factor
     transformed_y = (event.y - offset_y) / scale_factor
 
-    for(index, (point_x, point_y)) in enumerate(POINTS)
+    piece_index = UInt32(0)
+    for (index, (point_x, point_y)) in enumerate(points)
         distance = hypot(transformed_x - point_x, transformed_y - point_y)
 
         if distance <= POINT_SIZE
-            println("Clicked button ", index_transform[index])
-            return true
+            piece_index = UInt32(index_transform[index])
+            break
         end
-
     end
 
-    println("Nothing was clicked!")
-    return true
+    if board.total_placed < 18 && !is_valid_placement(board, piece_index)
+        return nothing    
+    end
+
+    new_board = Board(board.player_one_positions | (UInt32(1) << piece_index), board.player_two_positions,
+                    UInt8(board.player_one_pieces + 1), board.player_two_pieces, Int8(board.total_placed + 1))
+
+    board = new_board
+    
+    draw(canvas)
+    reveal(window, true)
+
+    global board = mini_max_first_phase(new_board, true, UInt8(MAX_DEPTH), typemin(Int), typemax(Int)).board
+        
+    draw(canvas)
+    reveal(window, true)
+
+    return nothing
 end
+
+signal_connect(handle_click, event_container, "button-press-event")
 
 # Branch so it doesnt automaticaly closes
 if !isinteractive()
