@@ -4,8 +4,8 @@ include("min_max_apha_beta.jl")
 const SCALE = 100.0
 const MARGIN = 0.9
 const POINT_SIZE = 1.0
-const MAX_DEPTH = 6
-
+const MAX_DEPTH = 1
+const WAIT_PERIOD = 0.5
 const index_transform = Dict(
     1 => 0,
     2 => 9,
@@ -32,6 +32,8 @@ const index_transform = Dict(
     23 => 12,
     24 => 17
 )
+
+global is_mill::Bool = false
 
 global board = Board(UInt32(0), UInt32(0), UInt8(0), UInt8(0), Int8(0))
 
@@ -207,10 +209,12 @@ showall(window)
 function handle_click(widget, event)
     global board
     global canvas
+    global is_mill
 
     w = width(canvas)
     h = height(canvas)
 
+    # Resizing the coordinates to the default factor
     board_size = min(w, h) * MARGIN
     offset_x = (w - board_size) / 2
     offset_y = (h - board_size) / 2
@@ -219,7 +223,8 @@ function handle_click(widget, event)
     transformed_x = (event.x - offset_x) / scale_factor
     transformed_y = (event.y - offset_y) / scale_factor
 
-    piece_index = UInt32(0)
+    # Searching for the nearest point clicked
+    piece_index = UInt32(25)
     for (index, (point_x, point_y)) in enumerate(points)
         distance = hypot(transformed_x - point_x, transformed_y - point_y)
 
@@ -229,29 +234,81 @@ function handle_click(widget, event)
         end
     end
 
-    if board.total_placed < 18 && !is_valid_placement(board, piece_index)
-        return nothing    
+    # If no point was clicked then we do nothing
+    if piece_index == 25
+        return true
+    end
+
+    # Removing phase
+    if is_mill
+
+        # If no piece was clicked then we return
+        if board.player_two_positions & (UInt32(1) << piece_index) == 0
+            return true;
+        end
+
+        # Clearing the piece from the board
+        global board = Board(board.player_one_positions, board.player_two_positions & ~(UInt32(1) << piece_index),
+                    board.player_one_pieces, UInt8(board.player_two_pieces - 1), board.total_placed)
+
+        global is_mill = false
+
+        draw(canvas)
+        reveal(window, true)
+
+        sleep(WAIT_PERIOD)
+
+        global board = mini_max_first_phase(board, true, UInt8(MAX_DEPTH), typemin(Int), typemax(Int)).board
+
+        draw(canvas)
+        reveal(window, true)
+
+    # Normal phase
+    else
+        if board.total_placed < 18
+            first_phase(board, piece_index)
+        end
+
+    end
+
+    return true
+end
+
+function first_phase(board, piece_index)
+    if(!is_valid_placement(board, piece_index))
+        return true
     end
 
     new_board = Board(board.player_one_positions | (UInt32(1) << piece_index), board.player_two_positions,
                     UInt8(board.player_one_pieces + 1), board.player_two_pieces, Int8(board.total_placed + 1))
-
-    board = new_board
-    
-    draw(canvas)
-    reveal(window, true)
-
-    global board = mini_max_first_phase(new_board, true, UInt8(MAX_DEPTH), typemin(Int), typemax(Int)).board
         
+    # Checking mill for the future move
+    if is_mill_after_move(new_board, piece_index, false)
+        global is_mill = true
+    end
+    
+    global board = new_board
+
     draw(canvas)
     reveal(window, true)
 
-    return nothing
+    if is_mill
+        return true
+    end
+
+    sleep(WAIT_PERIOD)
+
+    global board = mini_max_first_phase(board, true, UInt8(MAX_DEPTH), typemin(Int), typemax(Int)).board
+
+    draw(canvas)
+    reveal(window, true)
+
+    return true
 end
 
 signal_connect(handle_click, event_container, "button-press-event")
 
-# Branch so it doesnt automaticaly closes
+# Branch so it doesn't automaticaly closes
 if !isinteractive()
     c = Condition()
     signal_connect(window, :destroy) do widget
