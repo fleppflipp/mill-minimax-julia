@@ -4,8 +4,9 @@ include("min_max_apha_beta.jl")
 const SCALE = 100.0
 const MARGIN = 0.9
 const POINT_SIZE = 1.0
-const MAX_DEPTH = 1
-const WAIT_PERIOD = 0.5
+const CLICK_RECORD_SIZE = 5.0
+const MAX_DEPTH = 8
+const WAIT_PERIOD = 0.0
 const index_transform = Dict(
     1 => 0,
     2 => 9,
@@ -34,6 +35,7 @@ const index_transform = Dict(
 )
 
 global is_mill::Bool = false
+global move_piece = UInt32(25)
 
 global board = Board(UInt32(0), UInt32(0), UInt8(0), UInt8(0), Int8(0))
 
@@ -210,6 +212,7 @@ function handle_click(widget, event)
     global board
     global canvas
     global is_mill
+    global move_piece
 
     w = width(canvas)
     h = height(canvas)
@@ -228,7 +231,7 @@ function handle_click(widget, event)
     for (index, (point_x, point_y)) in enumerate(points)
         distance = hypot(transformed_x - point_x, transformed_y - point_y)
 
-        if distance <= POINT_SIZE
+        if distance <= CLICK_RECORD_SIZE
             piece_index = UInt32(index_transform[index])
             break
         end
@@ -241,9 +244,20 @@ function handle_click(widget, event)
 
     # Removing phase
     if is_mill
-
+    
         # If no piece was clicked then we return
         if board.player_two_positions & (UInt32(1) << piece_index) == 0
+            return true;
+        end
+
+        array_index = piece_index + 1
+        
+        # Can't take down a piece from a formed mill
+        is_part_of_mill = any(MILLS_BY_POSITION_BIT_MASK[array_index]) do mill_mask
+            (mill_mask & board.player_two_positions) == mill_mask
+        end
+
+        if is_part_of_mill
             return true;
         end
 
@@ -258,17 +272,38 @@ function handle_click(widget, event)
 
         sleep(WAIT_PERIOD)
 
-        global board = mini_max_first_phase(board, true, UInt8(MAX_DEPTH), typemin(Int), typemax(Int)).board
+        if board.total_placed < 18
+            global board = mini_max_first_phase(board, true, UInt8(MAX_DEPTH), typemin(Int), typemax(Int)).board
+        else
+            global board = mini_max_second_phase(board, true, UInt8(MAX_DEPTH), typemin(Int), typemax(Int)).board
+        end
 
         draw(canvas)
         reveal(window, true)
+
+        # End of the game
+        if board.total_placed == 18 && (board.player_one_pieces < 3 || board.player_two_pieces < 3)
+            sleep(WAIT_PERIOD)
+            exit()
+        end
 
     # Normal phase
     else
         if board.total_placed < 18
             first_phase(board, piece_index)
+        else
+            if board.player_one_positions & (UInt32(1) << piece_index) != 0
+                global move_piece = piece_index
+                println(move_piece, " was selected")
+                return true;
+            else
+                second_phase(board, piece_index)
+            end
         end
+    end
 
+    if board.total_placed == 18 && (get_available_move_count(board, true) == 0 || get_available_move_count(board, false) == 0)
+        exit()
     end
 
     return true
@@ -302,6 +337,44 @@ function first_phase(board, piece_index)
 
     draw(canvas)
     reveal(window, true)
+
+    return true
+end
+
+function second_phase(board, piece_index)
+    global move_piece
+
+    if !is_valid_move(board, move_piece, piece_index, false)
+        return true;
+    end
+
+    player_one_new_pos = board.player_one_positions & ~(UInt32(1) << move_piece)
+    player_one_new_pos |= (UInt32(1) << piece_index)
+
+    new_board = Board(player_one_new_pos, board.player_two_positions, board.player_one_pieces, board.player_two_pieces, board.total_placed)
+
+     # Checking mill for the future move
+    if is_mill_after_move(new_board, piece_index, false)
+        global is_mill = true
+    end
+    
+    global board = new_board
+
+    draw(canvas)
+    reveal(window, true)
+
+    if is_mill
+        return true
+    end
+
+    sleep(WAIT_PERIOD)
+
+    global board = mini_max_second_phase(board, true, UInt8(MAX_DEPTH), typemin(Int), typemax(Int)).board
+
+    draw(canvas)
+    reveal(window, true)
+
+    global move_piece = UInt32(25)
 
     return true
 end
