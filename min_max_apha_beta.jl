@@ -5,15 +5,15 @@ struct Node
     board::Board
 end
 
-total_evaluations::UInt32 = 0
+total_evaluations::UInt64 = 0
 
 
 # multipliers for the heauristic evaluation of the score
-const PIECE_DIFF_MULTIPLIER = 100
+const PIECE_DIFF_MULTIPLIER = 500
 const END_PIECE_DIFF_MULTIPLIER = 10000
-const MILLS_DIFF_MULTIPLIER = 40
-const NEARLY_MILL_MULTIPLIER = 20
-const INTERSECTION_MULTIPLIER = 5
+const MILLS_DIFF_MULTIPLIER = 200
+const NEARLY_MILL_MULTIPLIER = 50
+const INTERSECTION_MULTIPLIER = 10
 
 function evaluate_first_phase(board::Board)::Int
     global total_evaluations += 1
@@ -162,8 +162,9 @@ function process_move(board::Board, pos::UInt32, depth::UInt8, alpha::Int, beta:
 end
 
 #for the second phase, blocking the enemys movement becomes more important
-const AVAILABLE_MOVES_MULTIPLIER = 20
-function evaluate_second_phase(board::Board)::Int
+const ENDGAME_SCORE = 1000000
+const AVAILABLE_MOVES_MULTIPLIER = 30
+function evaluate_second_phase(board::Board, depth::UInt8=UInt8(0))::Int
     global total_evaluations += 1
 
     score = 0
@@ -173,15 +174,15 @@ function evaluate_second_phase(board::Board)::Int
 
     #   checking if the game ended
     if board.player_two_pieces < 3 || player_two_possible_move_count == 0
-        return typemax(Int)
+        return ENDGAME_SCORE + (Int(depth) * 1000)
     elseif board.player_one_pieces < 3 || player_one_possible_move_count == 0
-        return typemin(Int)
+        return -ENDGAME_SCORE - (Int(depth) * 1000)
     end
 
-    score += AVAILABLE_MOVES_MULTIPLIER * (player_one_possible_move_count * player_two_possible_move_count)
+    score += AVAILABLE_MOVES_MULTIPLIER * (Int(player_one_possible_move_count) - Int(player_two_possible_move_count))
 
 
-    current_piece_diff_multiplier = (board.player_one_pieces == 3 || board.player_two_pieces == 3) ? PIECE_DIFF_MULTIPLIER : END_PIECE_DIFF_MULTIPLIER
+    current_piece_diff_multiplier = (board.player_one_pieces == 3 || board.player_two_pieces == 3) ? END_PIECE_DIFF_MULTIPLIER : PIECE_DIFF_MULTIPLIER 
     score += current_piece_diff_multiplier * (board.player_one_pieces - board.player_two_pieces)
 
     p1_mills, p1_nearly, p2_mills, p2_nearly = get_mills_and_nearly(board)
@@ -200,8 +201,8 @@ end
 function mini_max_second_phase(board::Board, player::Bool, depth::UInt8, alpha::Int, beta::Int)::Node
 
     # check if the game ended
-    board_eval = evaluate_second_phase(board)
-    if (board_eval == typemax(Int)) || (board_eval == typemin(Int)) || (depth == 0)
+    board_eval = evaluate_second_phase(board, depth)
+    if (abs(board_eval) >= (ENDGAME_SCORE - 100000)) || (depth == 0)
         return Node(board_eval, board)
     end
 
