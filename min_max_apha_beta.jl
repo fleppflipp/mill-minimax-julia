@@ -5,7 +5,7 @@ struct Node
     board::Board
 end
 
-total_evaluations::UInt64 = 0
+# total_evaluations::Int = 0
 
 
 # multipliers for the heauristic evaluation of the score
@@ -16,8 +16,7 @@ const NEARLY_MILL_MULTIPLIER = 50
 const INTERSECTION_MULTIPLIER = 10
 
 function evaluate_first_phase(board::Board)::Int
-    global total_evaluations += 1
-
+    # global total_evaluations += 1
     score = 0
 
     score += PIECE_DIFF_MULTIPLIER * (board.player_one_pieces - board.player_two_pieces)
@@ -165,7 +164,7 @@ end
 const ENDGAME_SCORE = 1000000
 const AVAILABLE_MOVES_MULTIPLIER = 30
 function evaluate_second_phase(board::Board, depth::UInt8=UInt8(0))::Int
-    global total_evaluations += 1
+# global total_evaluations += 1
 
     score = 0
 
