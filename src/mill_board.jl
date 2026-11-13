@@ -1,10 +1,13 @@
-mutable struct Board
+struct Board
     player_one_positions::UInt32
     player_two_positions::UInt32
 
-    player_one_pieces::UInt8
-    player_two_pieces::UInt8
+    player_one_pieces::Int8
+    player_two_pieces::Int8
+
+    total_placed::Int8
 end
+
 # stores all the possible combinations for a valid mill from a given positoin
 const MILLS_BY_POSITION = [
     [[0, 1, 2], [0, 9, 21]],
@@ -72,9 +75,12 @@ end
 # creating bitmasks from these for faster operations
 const ADJACENCY_LIST_BIT_MASK = [convert_list_to_bitmask(neighbor) for neighbor in ADJACENCY_LIST]
 const MILLS_BY_POSITION_BIT_MASK = [[convert_list_to_bitmask(neighbor) for neighbor in neighbors_list] for neighbors_list in MILLS_BY_POSITION]
+const ALL_MILLS_BIT_MASK = unique(foldl(vcat, MILLS_BY_POSITION_BIT_MASK))
+const INTERSECTIONS_BIT_MASK = (UInt32(1) << 4) | (UInt32(1) << 10) | (UInt32(1) << 13) | (UInt32(1) << 19)
+
 
 # checks if a placement is valid in the first phase of the game
-function is_valid_placement(board::Board, position::UInt32)::Bool
+@inline function is_valid_placement(board::Board, position::UInt32)::Bool
 
     if position > 23
         return false
@@ -88,7 +94,7 @@ function is_valid_placement(board::Board, position::UInt32)::Bool
 end
 
 # checks if a move is valid in the second and third phases of the game
-function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_index::UInt8)::Bool
+@inline function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_index::Bool)::Bool
     if (start_pos > 23) || (end_pos > 23)
         return false
     end
@@ -104,7 +110,7 @@ function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_
     end
 
     # if in third phase, you can jump, no more checks needed
-    if (player_index == 0 && board.player_one_pieces == 3) || (player_index == 1 && board.player_two_pieces == 3)
+    if (!player_index && board.player_one_pieces == 3) || (player_index && board.player_two_pieces == 3)
         return true
     end
 
@@ -117,8 +123,8 @@ function is_valid_move(board::Board, start_pos::UInt32, end_pos::UInt32, player_
 end
 
 # checks if a move or placement of a piece created a new mill
-function is_mill_after_move(board::Board, position::UInt32, player_index::UInt8)::Bool
-    player_board = player_index == 0 ? board.player_one_positions : board.player_two_positions
+@inline function is_mill_after_move(board::Board, position::UInt32, player_index::Bool)::Bool
+    player_board = player_index == false ? board.player_one_positions : board.player_two_positions
 
     for possible_mill in MILLS_BY_POSITION_BIT_MASK[position+1]
         if (player_board & possible_mill) == possible_mill
@@ -127,4 +133,72 @@ function is_mill_after_move(board::Board, position::UInt32, player_index::UInt8)
     end
 
     return false
+end
+
+@inline function get_capturable_bit_mask(board::Board, enemy_index::Bool)::UInt32
+    enemy_board = enemy_index == false ? board.player_one_positions : board.player_two_positions
+
+    capturable_bit_mask = UInt32(0)
+    for i in 0:23
+        pos = UInt32(1) << i
+        if (enemy_board & pos) != 0
+            if !is_mill_after_move(board, UInt32(i), enemy_index)
+                capturable_bit_mask |= pos
+            end
+        end
+    end
+
+    # ha csak malom van, akkor barmit le lehet venni
+    if (capturable_bit_mask == 0) && (enemy_board != 0)
+        return enemy_board
+    end
+
+    return capturable_bit_mask
+end
+
+@inline function get_empty_spots_mask(board::Board)::UInt32
+    empty_spots = ~(board.player_one_positions | board.player_two_positions) & 0x00FFFFFF
+end
+
+@inline  function get_available_move_count(board::Board, player_index::Bool)::UInt8
+    player_board = !player_index ? board.player_one_positions : board.player_two_positions
+
+    empty_spots = get_empty_spots_mask(board)
+
+    possible_moves = 0
+    while (player_board != 0)
+        pos = trailing_zeros(player_board)
+        possible_moves += count_ones(ADJACENCY_LIST_BIT_MASK[pos + 1] & empty_spots)
+
+        player_board &= ~(UInt32(1) << pos)
+    end
+
+    return possible_moves
+end
+
+@inline function get_mills_and_nearly(board::Board)
+    p1_mills = 0
+    p1_nearly = 0
+
+    p2_mills = 0
+    p2_nearly = 0
+    for mill_mask in ALL_MILLS_BIT_MASK
+
+        p1_count_in_mill = count_ones(mill_mask & board.player_one_positions)
+        p2_count_in_mill = count_ones(mill_mask & board.player_two_positions)
+
+        if (p1_count_in_mill == 3)
+            p1_mills += 1
+        elseif p1_count_in_mill == 2 && p2_count_in_mill == 0
+            p1_nearly += 1
+        end
+
+        if (p2_count_in_mill == 3)
+            p2_mills += 1
+        elseif p2_count_in_mill == 2 && p1_count_in_mill == 0
+            p2_nearly += 1
+        end
+    end
+
+    return p1_mills, p1_nearly, p2_mills, p2_nearly
 end
