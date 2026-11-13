@@ -1,8 +1,8 @@
 using Plots
-include("mill_board.jl")
-include("min_max_apha_beta.jl")
+include(joinpath(@__DIR__, "..", "src", "minimax_alpha_beta.jl"))
 
-const PLOT_DIR = "plots"
+const PLOT_DIR = joinpath(@__DIR__, "..", "docs", "images")
+mkpath(PLOT_DIR)
 
 function play_full_game(depth_p1::Int, depth_p2::Int)
     board = Board(UInt32(0), UInt32(0), Int8(0), Int8(0), Int8(0))
@@ -22,7 +22,7 @@ function play_full_game(depth_p1::Int, depth_p2::Int)
         else
             node = mini_max_second_phase(board, current_player, depth, typemin(Int), typemax(Int))
         end
-        
+
         board = node.board
 
         if board.player_one_pieces < prev_p1_pieces || board.player_two_pieces < prev_p2_pieces
@@ -66,7 +66,7 @@ colors = [r == 1 ? :mediumseagreen : (r == 2 ? :crimson : :lightgray) for r in r
 labels = ["Depth $d" for d in opponents]
 
 labels_mat = reshape(labels, 1, :)
-moves_mat  = reshape(moves_to_end, 1, :)
+moves_mat = reshape(moves_to_end, 1, :)
 colors_mat = reshape(colors, 1, :)
 
 max_m = isempty(moves_to_end) ? 100 : maximum(moves_to_end)
@@ -80,7 +80,7 @@ p_tour = bar(labels_mat, moves_mat, color=colors_mat, legend=false,
 
 for (i, (m, r)) in enumerate(zip(moves_to_end, results))
     res_text = r == 1 ? "Győzelem" : (r == 2 ? "Vereség" : "Dönt.")
-        
+
     annotate!(p_tour, [(labels[i], m + (max_m * 0.04), Plots.text(res_text, 9, :black, :bottom))])
 end
 

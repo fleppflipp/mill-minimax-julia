@@ -1,5 +1,5 @@
-include("min_max_apha_beta.jl")
-using (Plots)
+include(joinpath(@__DIR__, "..", "src", "minimax_alpha_beta.jl"))
+using Plots
 
 function mini_max_first_phase_without_a_b(board::Board, player::Bool, depth::UInt8, alpha::Int, beta::Int)::Node
     if (depth == 0)
@@ -101,14 +101,14 @@ function process_move_without_a_b(board::Board, pos::UInt32, depth::UInt8, alpha
     return Node(ret, best_board)
 end
 
-function empirical_test(max_depth = 3)
+function empirical_test(max_depth=3)
     ab_evaluated = Float64[]
     total_tree_nodes = Float64[]
 
     initial_board = Board(UInt32(0), UInt32(0), Int8(0), Int8(0), Int8(0))
     for d in 1:max_depth
         println("A $d melyse szamitasa:")
-        
+
         global total_evaluations = 0
         mini_max_first_phase(initial_board, true, UInt8(d), typemin(Int), typemax(Int))
         ab_nodes = total_evaluations
@@ -144,7 +144,7 @@ function empirical_test(max_depth = 3)
         color=:red,
         lw=2,
         marker=:circle)
-    
+
     for i in 1:max_depth
         annotate!(p1, depths[i], pruned_nodes_plot[i] * 1.5, Plots.text(format_number(pruned_nodes[i]), 8, :green, :bottom))
         annotate!(p1, depths[i], ab_evaluated[i] * 0.65, Plots.text(format_number(ab_evaluated[i]), 8, :red, :top))

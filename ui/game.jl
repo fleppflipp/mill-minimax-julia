@@ -1,5 +1,5 @@
 using Gtk, Cairo
-include("min_max_apha_beta.jl")
+include(joinpath(@__DIR__, "..", "src", "minimax_alpha_beta.jl"))
 
 const SCALE = 100.0
 const MARGIN = 0.9
@@ -40,7 +40,7 @@ global move_piece = UInt32(25)
 global board = Board(UInt32(0), UInt32(0), UInt8(0), UInt8(0), Int8(0))
 
 # Reading in all the elemenets from the Glade file
-builder = GtkBuilder(filename="Mill.glade")
+builder = GtkBuilder(filename=joinpath(@__DIR__, "Mill.glade"))
 window = builder["window"]
 
 event_container = builder["canvas_event_container"]
@@ -112,7 +112,7 @@ function draw_board(widget)
                 if col == start_pos + step_size && row == start_pos + step_size
                     continue
                 end
-                
+
                 # Draw vertical lines within the square
                 if row > start_pos && col != start_pos + step_size
                     draw_line(ctx, col, row, col, row - step_size)
@@ -163,26 +163,26 @@ function draw_pieces(ctx)
     global points
 
     for (i, (x, y)) in enumerate(points)
-        if i > 24 
-            break 
+        if i > 24
+            break
         end
 
         bit_index = index_transform[i]
-        
+
         if (board.player_one_positions & (UInt32(1) << bit_index)) != 0
             # White piece for Player 1
-            set_source_rgb(ctx, 1.0, 1.0, 1.0) 
+            set_source_rgb(ctx, 1.0, 1.0, 1.0)
             arc(ctx, x, y, POINT_SIZE * 4, 0, 2*pi)
             fill(ctx)
-            
+
             set_source_rgb(ctx, 0.0, 0.0, 0.0)
             set_line_width(ctx, 0.5)
             arc(ctx, x, y, POINT_SIZE * 4, 0, 2*pi)
             stroke(ctx)
-            
+
         elseif (board.player_two_positions & (UInt32(1) << bit_index)) != 0
             # Black piece for Player 2
-            set_source_rgb(ctx, 0.0, 0.0, 0.0) 
+            set_source_rgb(ctx, 0.0, 0.0, 0.0)
             arc(ctx, x, y, POINT_SIZE * 4, 0, 2*pi)
             fill(ctx)
         end
@@ -244,26 +244,26 @@ function handle_click(widget, event)
 
     # Removing phase
     if is_mill
-    
+
         # If no piece was clicked then we return
         if board.player_two_positions & (UInt32(1) << piece_index) == 0
-            return true;
+            return true
         end
 
         array_index = piece_index + 1
-        
+
         # Can't take down a piece from a formed mill
         is_part_of_mill = any(MILLS_BY_POSITION_BIT_MASK[array_index]) do mill_mask
             (mill_mask & board.player_two_positions) == mill_mask
         end
 
         if is_part_of_mill
-            return true;
+            return true
         end
 
         # Clearing the piece from the board
         global board = Board(board.player_one_positions, board.player_two_positions & ~(UInt32(1) << piece_index),
-                    board.player_one_pieces, UInt8(board.player_two_pieces - 1), board.total_placed)
+            board.player_one_pieces, UInt8(board.player_two_pieces - 1), board.total_placed)
 
         global is_mill = false
 
@@ -287,7 +287,7 @@ function handle_click(widget, event)
             exit()
         end
 
-    # Normal phase
+        # Normal phase
     else
         if board.total_placed < 18
             first_phase(board, piece_index)
@@ -295,7 +295,7 @@ function handle_click(widget, event)
             if board.player_one_positions & (UInt32(1) << piece_index) != 0
                 global move_piece = piece_index
                 println(move_piece, " was selected")
-                return true;
+                return true
             else
                 second_phase(board, piece_index)
             end
@@ -310,18 +310,18 @@ function handle_click(widget, event)
 end
 
 function first_phase(board, piece_index)
-    if(!is_valid_placement(board, piece_index))
+    if (!is_valid_placement(board, piece_index))
         return true
     end
 
     new_board = Board(board.player_one_positions | (UInt32(1) << piece_index), board.player_two_positions,
-                    UInt8(board.player_one_pieces + 1), board.player_two_pieces, Int8(board.total_placed + 1))
-        
+        UInt8(board.player_one_pieces + 1), board.player_two_pieces, Int8(board.total_placed + 1))
+
     # Checking mill for the future move
     if is_mill_after_move(new_board, piece_index, false)
         global is_mill = true
     end
-    
+
     global board = new_board
 
     draw(canvas)
@@ -345,7 +345,7 @@ function second_phase(board, piece_index)
     global move_piece
 
     if !is_valid_move(board, move_piece, piece_index, false)
-        return true;
+        return true
     end
 
     player_one_new_pos = board.player_one_positions & ~(UInt32(1) << move_piece)
@@ -353,11 +353,11 @@ function second_phase(board, piece_index)
 
     new_board = Board(player_one_new_pos, board.player_two_positions, board.player_one_pieces, board.player_two_pieces, board.total_placed)
 
-     # Checking mill for the future move
+    # Checking mill for the future move
     if is_mill_after_move(new_board, piece_index, false)
         global is_mill = true
     end
-    
+
     global board = new_board
 
     draw(canvas)

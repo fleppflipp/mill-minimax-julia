@@ -1,7 +1,7 @@
 using Plots
 using BenchmarkTools
-include("mill_board.jl")
-include("min_max_apha_beta.jl")
+
+include(joinpath(@__DIR__, "..", "src", "minimax_alpha_beta.jl"))
 
 function collect_performance_data(max_d::Int)
     times_ab = Float64[]
@@ -21,7 +21,8 @@ end
 
 TEST_DEPTH = 8
 depths = 1:TEST_DEPTH
-const PLOT_DIR = "plots/"
+const PLOT_DIR = joinpath(@__DIR__, "..", "docs", "images")
+mkpath(PLOT_DIR)
 
 times_data = collect_performance_data(TEST_DEPTH)
 
